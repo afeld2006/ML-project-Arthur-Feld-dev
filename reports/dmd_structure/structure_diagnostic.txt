@@ -1,0 +1,29 @@
+DMD cross-signal structure
+====================================================
+signals processed: 77
+errors:            0
+modes kept per signal before pairing: 8
+modes retained after pairing: median 5, min 4, max 6
+total modes pooled: 387
+
+Mode frequency (Hz):
+  minimum:  0.0000
+  median:   0.2977
+  maximum:  5.0000
+  mean:     0.7094
+  st. dev.: 1.0650
+
+Mode growth rate (1/s):
+  minimum:  -59.5308
+  median:   -3.8348
+  maximum:  2.9257
+  mean:     -5.7039
+  st. dev.: 6.2545
+
+Growth rate sign:
+  growing (g > 0): 7
+  decaying (g < 0): 380
+
+Stationary modes (frequency and growth rate both near zero):
+  without centring: 0 of 77 signals
+  with centring:    0 of 77 signals
