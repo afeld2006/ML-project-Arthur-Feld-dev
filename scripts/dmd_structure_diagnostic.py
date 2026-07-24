@@ -45,9 +45,18 @@ from mat_spectrogram_features import (
 )
 from dmd import dmd, mode_energies, mode_frequencies, mode_growth_rates
 
-# A mode counts as stationary when both descriptors sit this close to zero
-STATIONARY_F_TOL = 1e-6   # Hz
-STATIONARY_G_TOL = 1e-6   # 1/s
+# A mode counts as stationary when it barely oscillates and barely changes
+# level. The tolerances are set against the physical scale of the data, not
+# against machine precision: a pass lasts about 4.8 s, so 0.05 Hz is under a
+# quarter of a cycle across the whole recording, and 0.5 1/s is far below the
+# median decay rate of the set. Exact zeros do not occur in measured data.
+STATIONARY_F_TOL = 0.05   # Hz
+STATIONARY_G_TOL = 0.5    # 1/s
+
+# Eigenvalues on the negative real axis return a frequency of exactly the
+# Nyquist limit, 1 / (2 dt). These are a sampling artefact rather than a
+# resolved oscillation, so they are counted separately and reported.
+NYQUIST_TOL = 1e-6        # Hz, relative to the Nyquist frequency
 
 # Conjugate pairs describe one oscillation; two modes are treated as the same
 # physical component when their descriptors agree to this precision
@@ -83,6 +92,17 @@ def load_linear_spectrogram(
 
     return np.nan_to_num(spectrogram, nan=0.0, posinf=0.0, neginf=0.0)
 
+def flag_nyquist_modes(freqs: np.ndarray, dt: float) -> np.ndarray:
+    """Mark modes whose frequency sits at the Nyquist limit.
+
+    An eigenvalue on the negative real axis has phase pi, which maps to a
+    frequency of exactly 1 / (2 dt). Nothing faster can be represented at this
+    sampling rate, so such a mode reports the fastest frequency the grid
+    allows rather than a resolved oscillation. They are identified here so
+    their number is known before the features are built.
+    """
+    nyquist = 1.0 / (2.0 * dt)
+    return np.abs(freqs - nyquist) < NYQUIST_TOL
 
 def deduplicate_pairs(freqs, growths, energies):
     """Keep one representative per complex-conjugate pair.
@@ -172,8 +192,9 @@ def plot_descriptor_histograms(freqs, growths, out_path):
     plt.close(fig)
 
 
-def plot_centring_comparison(stationary_counts, out_path):
-    """Compare how many stationary modes appear with and without centring."""
+def plot_centring_comparison(stationary_counts, n_signals, out_path):
+    """Compare how many signals return a stationary mode, with and without
+    the time-mean removed."""
     fig, ax = plt.subplots(figsize=(7, 4.5))
 
     labels = ["without centring", "with centring"]
@@ -182,11 +203,14 @@ def plot_centring_comparison(stationary_counts, out_path):
     ax.bar(labels, values, color="tab:blue", alpha=0.85)
     ax.set_ylabel("Signals with a stationary mode")
     ax.set_title("Effect of mean-centring on the returned modes")
+    # a fixed axis keeps the two bars comparable against the set size
+    ax.set_ylim(0, n_signals)
     ax.grid(True, axis="y", color="0.92", linewidth=0.6)
 
     # print the count above each bar so the figure is readable on its own
     for i, value in enumerate(values):
-        ax.text(i, value, f" {value}", ha="center", va="bottom", fontsize=11)
+        ax.text(i, value, f" {value} of {n_signals}",
+                ha="center", va="bottom", fontsize=11)
 
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
@@ -249,6 +273,8 @@ def main() -> int:
     pooled_a = []
     modes_per_signal = []
     stationary_counts = {"centred": 0, "uncentred": 0}
+    nyquist_total = 0           # modes reported at the sampling limit
+    nyquist_signals = 0         # signals carrying at least one such mode
     errors = []
 
     for mat_path in files:
@@ -267,6 +293,13 @@ def main() -> int:
             pooled_g.append(g_c)
             pooled_a.append(a_c)
             modes_per_signal.append(len(f_c))
+
+            # modes at the sampling limit are counted but not removed here;
+            # this diagnostic reports what is present, it does not filter
+            at_nyquist = flag_nyquist_modes(f_c, args.dt)
+            nyquist_total += int(np.sum(at_nyquist))
+            if np.any(at_nyquist):
+                nyquist_signals += 1
 
             # a stationary mode neither oscillates nor changes level
             if np.any((np.abs(f_c) < STATIONARY_F_TOL)
@@ -304,7 +337,7 @@ def main() -> int:
                           out_dir / "mode_frequency_growth.png", n_signals)
     plot_descriptor_histograms(freqs, growths,
                                out_dir / "descriptor_histograms.png")
-    plot_centring_comparison(stationary_counts,
+    plot_centring_comparison(stationary_counts, n_signals,
                              out_dir / "centring_comparison.png")
 
     # ---- summary ----
@@ -329,9 +362,14 @@ def main() -> int:
         f"  growing (g > 0): {int(np.sum(growths > 0))}",
         f"  decaying (g < 0): {int(np.sum(growths < 0))}",
         "",
-        "Stationary modes (frequency and growth rate both near zero):",
+        f"Stationary modes (|f| < {STATIONARY_F_TOL} Hz and "
+        f"|g| < {STATIONARY_G_TOL} 1/s):",
         f"  without centring: {stationary_counts['uncentred']} of {n_signals} signals",
         f"  with centring:    {stationary_counts['centred']} of {n_signals} signals",
+        "",
+        f"Modes at the Nyquist limit ({1.0 / (2.0 * args.dt):.2f} Hz):",
+        f"  modes:   {nyquist_total} of {len(freqs)}",
+        f"  signals: {nyquist_signals} of {n_signals}",
     ]
 
     report = "\n".join(lines)

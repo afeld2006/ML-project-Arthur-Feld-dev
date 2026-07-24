@@ -24,6 +24,10 @@ Growth rate sign:
   growing (g > 0): 7
   decaying (g < 0): 380
 
-Stationary modes (frequency and growth rate both near zero):
-  without centring: 0 of 77 signals
-  with centring:    0 of 77 signals
+Stationary modes (|f| < 0.05 Hz and |g| < 0.5 1/s):
+  without centring: 44 of 77 signals
+  with centring:    3 of 77 signals
+
+Modes at the Nyquist limit (5.00 Hz):
+  modes:   12 of 387
+  signals: 10 of 77
