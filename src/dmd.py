@@ -1,7 +1,15 @@
 """Dynamic Mode Decomposition (DMD) on a snapshot sequence.
 
-Implements Algorithm 1 : the exact-DMD variant that avoids forming the full
-n x n operator A by projecting onto a small basis built from the SVD.
+Follows Algorithm 1 : the operator A is never formed at full size ; it is
+projected onto a small basis built from the SVD of the first snapshot matrix.
+
+Note on step 1 and 2 : Algorithm 1 obtains the basis from the Gram product
+(Psi_p)^T Psi_p. That product squares the condition number, so the small
+singular values lose accuracy ; measured on synthetic data, values that should
+be near 1e-16 came out near 1e-8. This module takes the thin SVD of Psi_p
+instead, which gives the same U, Sigma and V at full precision. The low-storage
+motivation is kept : the thin SVD of an n x m matrix never forms anything
+larger than n x m, so the n x n operator is still never built.
 
 Terminology used throughout:
   snapshot   : one column of the data matrix ; one time frame of the spectrogram
