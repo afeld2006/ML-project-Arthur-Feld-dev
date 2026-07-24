@@ -193,7 +193,7 @@ def test_d_rank_truncation():
     # At full rank the strong mode must still carry the larger energy
     res_full = dmd(data, rank=4, mean_centre=False, dt=DT)
     f_full = mode_frequencies(res_full["eigenvalues"], DT)
-    e_full = mode_energies(res_full["modes"], res_full["amplitudes"])
+    e_full = mode_energies(res_full["modes"], res_full["amplitudes"], res_full["eigenvalues"], 60)
     i_strong = int(np.argmin(np.abs(f_full - f_strong)))
     i_weak = int(np.argmin(np.abs(f_full - f_weak)))
 

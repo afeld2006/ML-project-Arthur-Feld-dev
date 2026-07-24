@@ -1,0 +1,58 @@
+DMD rank diagnostic
+====================================================
+files found:     77
+files processed: 77
+errors:          0
+snapshots per file: 48
+snapshot spacing:   0.1 s
+treated as dB:      [True]
+
+Median normalised singular value by index:
+  index  1: 1.000000
+  index  2: 0.674812
+  index  3: 0.558968
+  index  4: 0.477629
+  index  5: 0.407286
+  index  6: 0.379136
+  index  7: 0.332889
+  index  8: 0.317955
+  index  9: 0.275541
+  index 10: 0.246696
+  index 11: 0.218912
+  index 12: 0.203999
+  index 13: 0.190912
+  index 14: 0.172299
+  index 15: 0.161311
+  index 16: 0.147386
+  index 17: 0.144605
+  index 18: 0.133470
+  index 19: 0.127253
+  index 20: 0.117471
+
+Modes needed to reach a given energy fraction:
+  0.90: median 10, min 2, max 15
+  0.95: median 14, min 2, max 17
+  0.99: median 19, min 8, max 20
+
+Ratio of consecutive median singular values:
+  index  1 to  2: 1.482
+  index  2 to  3: 1.207
+  index  3 to  4: 1.170
+  index  4 to  5: 1.173
+  index  5 to  6: 1.074
+  index  6 to  7: 1.139
+  index  7 to  8: 1.047
+  index  8 to  9: 1.154
+  index  9 to 10: 1.117
+  index 10 to 11: 1.127
+  index 11 to 12: 1.073
+  index 12 to 13: 1.069
+  index 13 to 14: 1.108
+  index 14 to 15: 1.068
+  index 15 to 16: 1.094
+  index 16 to 17: 1.019
+  index 17 to 18: 1.083
+  index 18 to 19: 1.049
+  index 19 to 20: 1.083
+
+Largest drop: index 1 to 2 (ratio 1.482)
