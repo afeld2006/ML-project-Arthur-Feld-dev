@@ -7,6 +7,20 @@ import pandas as pd
 
 # The three flight phases each signal is recorded in
 PHASES = ("Approach", "Flyover", "Recede")
+# Columns that describe how a feature row was produced rather than being
+# features themselves; everything else in a feature CSV is taken as a feature,
+# so the join works for any extraction without naming its columns here
+METADATA_COLS = {
+    "filename", "filepath", "status", "error",
+    # written by the mean-frequency extraction
+    "method", "fmin_hz", "fmax_hz", "values_are_db", "freq_key",
+    "spectrogram_key", "n_frequency_bins", "n_time_bins",
+    # written by the DMD extraction
+    "n_modes", "dt_s", "mean_centred", "n_snapshots",
+    "n_nyquist_dropped", "n_modes_available", "n_modes_padded",
+    # join keys, added during the merge
+    "AudioNum", "Phase",
+}
 # Regex to pull the signal number and phase out of a filename; case-insensitive
 _FILENAME_RE = re.compile(r"SignalNum(\d+).*?(Approach|Flyover|Recede)", re.IGNORECASE)
 
@@ -55,6 +69,7 @@ def build_modeling_dataset(
     xlsx_path: str | Path,
     sheet_name: str,
     include_zero: bool = True,
+    feature_cols: list[str] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Join mean-frequency features to aggregated annoyance labels on
     (SignalNum, Phase). Returns (merged_ok, unmatched_features)."""
@@ -75,8 +90,14 @@ def build_modeling_dataset(
     ok = merged[merged["annoyance_mean"].notna()].copy()
     unmatched = merged[merged["annoyance_mean"].isna()].copy()
 
-    # Keep only the modelling columns, ordered and sorted for a clean output
-    cols = ["filename", "AudioNum", "Phase", "mean_frequency_hz",
-            "annoyance_mean", "n_presentations"]
+    # Keep only the modelling columns, ordered and sorted for a clean output.
+    # Anything that is not metadata counts as a feature, so one mean-frequency
+    # column and a block of DMD descriptors are both handled without change.
+    if feature_cols is None:
+        feature_cols = [c for c in feats.columns if c not in METADATA_COLS]
+
+    cols = (["filename", "AudioNum", "Phase"]
+            + list(feature_cols)
+            + ["annoyance_mean", "n_presentations"])
     ok = ok[cols].sort_values(["AudioNum", "Phase"]).reset_index(drop=True)
     return ok, unmatched
