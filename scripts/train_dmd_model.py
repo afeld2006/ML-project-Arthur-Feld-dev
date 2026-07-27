@@ -43,6 +43,12 @@ def main() -> None:
                         help="Fraction held out as the final test set.")
     parser.add_argument("--random-state", type=int, default=42,
                         help="Seed for a reproducible holdout and fold split.")
+    parser.add_argument("--with-centroid", action="store_true",
+                        help="Add the mean-frequency feature from the MVP "
+                             "dataset to every rank.")
+    parser.add_argument("--centroid-dataset", default="features/dataset.csv",
+                        help="MVP dataset holding mean_frequency_hz, used only "
+                             "with --with-centroid.")
     parser.add_argument("--output-dir", default="reports",
                         help="Parent folder for the per-rank result folders.")
     args = parser.parse_args()
@@ -50,9 +56,18 @@ def main() -> None:
     output_root = Path(args.output_dir)
     summary_rows = []
 
+    # a suffix keeps the centroid runs in their own folders, so a plain run and
+    # a with-centroid run do not overwrite each other
+    suffix = "_centroid" if args.with_centroid else ""
+
     for n_modes in args.ranks:
         # Each rank uses only the rows that have all of its features present
-        df = load_dataset(args.dataset, n_modes=n_modes)
+        df = load_dataset(
+            args.dataset,
+            n_modes=n_modes,
+            with_centroid=args.with_centroid,
+            centroid_csv=args.centroid_dataset if args.with_centroid else None,
+        )
 
         cv = cross_validate_dmd(
             df,
@@ -60,10 +75,11 @@ def main() -> None:
             n_splits=args.n_splits,
             holdout_size=args.holdout_size,
             random_state=args.random_state,
+            with_centroid=args.with_centroid,
         )
 
         # Write this rank's folder: metrics plus the two figures
-        rank_dir = output_root / f"dmd_r{n_modes}"
+        rank_dir = output_root / f"dmd_r{n_modes}{suffix}"
         rank_dir.mkdir(parents=True, exist_ok=True)
 
         report = format_report(cv)
@@ -78,12 +94,18 @@ def main() -> None:
         summary_rows.append(cv)
 
     # Summary table across the ranks
+    title = ("DMD + mean frequency : results across ranks" if args.with_centroid
+             else "DMD model : results across ranks")
     lines = [
-        "DMD model : results across ranks",
+        title,
         "=" * 56,
         f"dataset: {args.dataset}",
         f"holdout: {int(args.holdout_size * 100)} percent, "
         f"{args.n_splits} folds on the rest",
+    ]
+    if args.with_centroid:
+        lines.append(f"centroid added from: {args.centroid_dataset}")
+    lines += [
         "",
         f"{'rank':>4}  {'features':>8}  {'holdout RMSE':>12}  "
         f"{'holdout R2':>10}  {'baseline RMSE':>13}",
@@ -96,10 +118,11 @@ def main() -> None:
         )
 
     summary = "\n".join(lines)
-    (output_root / "dmd_summary.txt").write_text(summary + "\n", encoding="utf-8")
+    summary_path = output_root / f"dmd_summary{suffix}.txt"
+    summary_path.write_text(summary + "\n", encoding="utf-8")
 
     print(summary)
-    print(f"\nSaved summary to {output_root / 'dmd_summary.txt'}")
+    print(f"\nSaved summary to {summary_path}")
 
 
 # Only run when executed directly, not when imported

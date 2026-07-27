@@ -1,0 +1,10 @@
+DMD + mean frequency : results across ranks
+========================================================
+dataset: features/dmd_dataset.csv
+holdout: 20 percent, 5 folds on the rest
+centroid added from: features/dataset.csv
+
+rank  features  holdout RMSE  holdout R2  baseline RMSE
+   2         7        0.3475      0.6127         0.5749
+   3        10        0.3538      0.5983         0.5749
+   4        13        0.3803      0.5361         0.5749

@@ -37,21 +37,28 @@ from sklearn.model_selection import KFold, train_test_split
 
 TARGET_COL = "annoyance_mean"       # model target y
 
+# The mean-frequency feature from the MVP, joined back in when requested so its
+# contribution can be compared against the DMD descriptors on equal footing
+CENTROID_COL = "mean_frequency_hz"
+
 # Energy floor used before the logarithm ; a padded mode has energy exactly 0,
 # and log(0) is undefined. No padding occurs at the ranks used here, but the
 # floor keeps the transform safe for any rank or dataset.
 ENERGY_FLOOR = 1e-12
 
 
-def feature_columns(n_modes: int) -> list[str]:
-    """Names of the 3 * n_modes feature columns, ordered mode by mode.
+def feature_columns(n_modes: int, with_centroid: bool = False) -> list[str]:
+    """Names of the feature columns, ordered mode by mode.
 
     Modes are numbered by descending energy, so selecting a smaller n_modes
-    keeps the strongest modes and drops the weakest.
+    keeps the strongest modes and drops the weakest. When with_centroid is set
+    the mean-frequency feature is appended as one extra column.
     """
     names: list[str] = []
     for i in range(1, n_modes + 1):
         names.extend([f"dmd_f_{i}_hz", f"dmd_g_{i}_per_s", f"dmd_a_{i}"])
+    if with_centroid:
+        names.append(CENTROID_COL)
     return names
 
 
@@ -60,22 +67,46 @@ def energy_columns(n_modes: int) -> list[str]:
     return [f"dmd_a_{i}" for i in range(1, n_modes + 1)]
 
 
-def load_dataset(dataset_csv: str | Path, n_modes: int) -> pd.DataFrame:
-    """Load the DMD dataset and keep the rows and columns this rank needs."""
+def load_dataset(
+    dataset_csv: str | Path,
+    n_modes: int,
+    with_centroid: bool = False,
+    centroid_csv: str | Path | None = None,
+) -> pd.DataFrame:
+    """Load the DMD dataset and keep the rows and columns this rank needs.
+
+    When with_centroid is set, the mean-frequency feature is merged in from
+    centroid_csv on the filename, so a single frame carries both the DMD
+    descriptors and the MVP feature.
+    """
     df = pd.read_csv(dataset_csv)
-    needed = feature_columns(n_modes) + [TARGET_COL]
+
+    if with_centroid:
+        if centroid_csv is None:
+            raise ValueError("centroid_csv is required when with_centroid is set")
+        mvp = pd.read_csv(centroid_csv)
+        # bring only the filename key and the one feature, to avoid duplicating
+        # the label or the join columns already present in the DMD dataset
+        df = df.merge(mvp[["filename", CENTROID_COL]], on="filename", how="left")
+
+    needed = feature_columns(n_modes, with_centroid=with_centroid) + [TARGET_COL]
     # Drop any row missing a feature or the label, then reset for a clean frame
     return df.dropna(subset=needed).reset_index(drop=True)
 
 
-def build_feature_matrix(df: pd.DataFrame, n_modes: int) -> np.ndarray:
+def build_feature_matrix(
+    df: pd.DataFrame,
+    n_modes: int,
+    with_centroid: bool = False,
+) -> np.ndarray:
     """Assemble the feature matrix, with energy columns log-transformed.
 
     log is applied here because it is a fixed function that uses nothing from
     other rows ; only the later standardisation must be confined to training
-    rows.
+    rows. The centroid, when present, is left in Hz and only standardised, as
+    it is not skewed the way the energy columns are.
     """
-    cols = feature_columns(n_modes)
+    cols = feature_columns(n_modes, with_centroid=with_centroid)
     X = df[cols].to_numpy(dtype=float)
 
     # take the base-10 logarithm of the energy columns only
@@ -108,13 +139,14 @@ def cross_validate_dmd(
     n_splits: int = 5,
     holdout_size: float = 0.20,
     random_state: int = 42,
+    with_centroid: bool = False,
 ) -> dict:
     """Hold out a final test set, run k-fold on the rest, keep the best fold.
 
     Mirrors the mean-frequency procedure, with standardisation refitted inside
     every fold on that fold's training rows.
     """
-    X = build_feature_matrix(df, n_modes)
+    X = build_feature_matrix(df, n_modes, with_centroid=with_centroid)
     y = df[TARGET_COL].to_numpy(dtype=float)
 
     # Step 1 : separate the final test set from the pool used for the folds
@@ -176,7 +208,7 @@ def cross_validate_dmd(
         "best_fold_r2": fold_r2[best_index],
         "coefficients": best_model.coef_.copy(),   # standardised, so comparable
         "intercept": float(best_model.intercept_),
-        "feature_names": feature_columns(n_modes),
+        "feature_names": feature_columns(n_modes, with_centroid=with_centroid),
         "y_holdout": y_holdout,
         "y_pred_holdout": y_pred_holdout,
         "holdout_rmse": holdout_rmse,             # reported result
@@ -228,10 +260,12 @@ def plot_coefficients(cv: dict, out_path: str | Path) -> None:
     names = cv["feature_names"]
     coefs = cv["coefficients"]
 
-    # colour by descriptor type so the three families are easy to tell apart
+    # colour by descriptor type so the families are easy to tell apart
     colours = []
     for name in names:
-        if "_f_" in name:
+        if name == CENTROID_COL:
+            colours.append("tab:red")
+        elif "_f_" in name:
             colours.append("tab:blue")
         elif "_g_" in name:
             colours.append("tab:orange")
@@ -257,6 +291,8 @@ def plot_coefficients(cv: dict, out_path: str | Path) -> None:
         Patch(color="tab:orange", label="growth rate"),
         Patch(color="tab:green", label="log energy"),
     ]
+    if CENTROID_COL in names:
+        legend.append(Patch(color="tab:red", label="mean frequency"))
     ax.legend(handles=legend, frameon=False, fontsize=9)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
