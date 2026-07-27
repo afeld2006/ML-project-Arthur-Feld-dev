@@ -1,0 +1,33 @@
+DMD linear model  (r = 4, 12 features)
+========================================================
+pool used for folds: 61 signals
+final holdout set:   16 signals (never seen)
+
+Validation results per fold:
+  fold 1 (val n=13):  RMSE = 0.5072   R2 = 0.0344  <= best
+  fold 2 (val n=12):  RMSE = 0.7001   R2 = -0.2984
+  fold 3 (val n=12):  RMSE = 0.5653   R2 = 0.0835
+  fold 4 (val n=12):  RMSE = 0.5484   R2 = -0.5279
+  fold 5 (val n=12):  RMSE = 0.6004   R2 = -1.1147
+
+Selected fold: 1 (lowest validation RMSE)
+
+FINAL RESULTS on the held-out 20 percent:
+  RMSE:          0.4240
+  R2:            0.4233
+  baseline RMSE: 0.5749  (predicting the pool mean)
+
+Standardised coefficients:
+  dmd_f_1_hz      : +0.1164
+  dmd_g_1_per_s   : +0.0137
+  dmd_a_1         : -0.1097
+  dmd_f_2_hz      : -0.0380
+  dmd_g_2_per_s   : +0.0702
+  dmd_a_2         : +0.5260
+  dmd_f_3_hz      : -0.0074
+  dmd_g_3_per_s   : +0.0328
+  dmd_a_3         : -0.4673
+  dmd_f_4_hz      : -0.0499
+  dmd_g_4_per_s   : +0.0070
+  dmd_a_4         : +0.2185
+  intercept       : +2.2254

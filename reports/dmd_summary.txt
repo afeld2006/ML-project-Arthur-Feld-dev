@@ -1,0 +1,9 @@
+DMD model : results across ranks
+========================================================
+dataset: features/dmd_dataset.csv
+holdout: 20 percent, 5 folds on the rest
+
+rank  features  holdout RMSE  holdout R2  baseline RMSE
+   2         6        0.4623      0.3143         0.5749
+   3         9        0.4789      0.2643         0.5749
+   4        12        0.4240      0.4233         0.5749
